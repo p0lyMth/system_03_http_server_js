@@ -2,15 +2,24 @@ const net     = require("net");
 
 // -- GET request handler
 function GET(req, socket) {
-  rgx_origin_root = /^GET\s\/\sHTTP\/1\.1$/;
-  rgx_origin_echo = /^GET\s\/echo\/([^\s?]*)\sHTTP\/1\.1$/;
+  req = req.split('\r\n');
 
-  if (rgx_origin_root.test(req)) {
+  req_root = req.find(line => line.startsWith("GET"));
+  req_usra = req.find(line => line.startsWith("User-Agent:"));
+  
+  const rgx_origin_root = /^GET\s\/\sHTTP\/1\.1$/;
+  const rgx_origin_echo = /^GET\s\/echo\/([^\s?]*)\sHTTP\/1\.1$/;
+  const rgx_origin_usra = /^GET\s\/user-agent\sHTTP\/1\.1$/;
+
+  if        (rgx_origin_root.test(req_root)) {
     socket.write("HTTP/1.1 200 OK\r\n\r\n");
-  } else if (rgx_origin_echo.test(req)) {
-    const resp = rgx_origin_echo.exec(req);
-    socket.write(`HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: ${Buffer.byteLength(resp[1])}\r\n\r\n${resp[1]}`);
-  } else {
+  } else if (rgx_origin_echo.test(req_root)) {
+    let resp = rgx_origin_echo.exec(req_root);
+    socket.write(`HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: ${Buffer.byteLength(resp[1]).toString()}\r\n\r\n${resp[1]}`);
+  } else if (rgx_origin_usra.test(req_root)) {
+    let resp = req_usra.split(" ");
+    socket.write(`HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: ${Buffer.byteLength(resp[1]).toString()}\r\n\r\n${resp[1]}`);
+  } else                                     {
     socket.write("HTTP/1.1 404 Not Found\r\n\r\n");
   }
 }
@@ -18,10 +27,10 @@ function GET(req, socket) {
 // -- create server
 const server = net.createServer(
 (socket) => {
-  // -- GET request handler
+  // -- HTTP request handlers
   socket.on("data", (data) => {
     console.log(`Incoming request:\n${data.toString()}`);
-    const req  = data.toString().split('\r\n')[0];
+    const req  = data.toString();
 
     GET(req, socket);
 
