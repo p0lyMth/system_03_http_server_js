@@ -7,13 +7,15 @@ const server = net.createServer(
     console.log(`Incoming request:\n${data.toString()}`);
 
     const req  = data.toString().split('\r\n')[0];
+
     rgx_origin = /^GET\s\/\sHTTP\/1\.1$/g;
     if (rgx_origin.test(req)) {
       socket.write("HTTP/1.1 200 OK\r\n\r\n");
-    } else {
-      socket.write("HTTP/1.1 404 Not Found\r\n\r\n");
+      socket.end();
+      return;
     }
 
+    socket.write("HTTP/1.1 404 Not Found\r\n\r\n");
     socket.end();
   });  
 
