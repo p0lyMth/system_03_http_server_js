@@ -23,9 +23,20 @@ function GET(req, socket) {
     }
   } else if (rgx_origin_echo.test(req_root))  {
     if ((/echo/).test(req_root)) {
-      let resp = rgx_origin_echo.exec(req_root);
-      socket.write(`HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: ${Buffer.byteLength(resp[1])}\r\n\r\n${resp[1]}`);
-      socket.end();
+      let resp   = rgx_origin_echo.exec(req_root);
+      let encode = req.find(line => line.startsWith("Accept-Encoding"));
+      if (encode !== undefined) { encode = encode.split(/:|\s/)[2].toString(); }
+
+      // console.log(`${encode}`);
+      // compress body response
+
+      if (encode === "gzip") {
+        socket.write(`HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Encoding: ${encode}\r\n\r\n`);
+        socket.end();
+      } else {
+        socket.write(`HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: ${Buffer.byteLength(resp[1])}\r\n\r\n${resp[1]}`);
+        socket.end();
+      }
     } else {
       socket.write("HTTP/1.1 404 Not Found\r\n\r\n");
       socket.end();
