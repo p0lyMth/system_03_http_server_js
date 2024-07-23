@@ -1,8 +1,8 @@
 const net  = require("net");
 const fs   = require("fs");
 const path = require("path");
+const zlib = require("zlib");
 
-// -- GET method handler
 function GET(req, socket) {
   req = req.split('\r\n');
 
@@ -27,20 +27,20 @@ function GET(req, socket) {
       let encode = req.find(line => line.startsWith("Accept-Encoding"));
       if (encode !== undefined) {
         encode = encode.split(':')[1].split(',').map(idx => idx.trim());
-        
-        // -- gzip
         encode = encode.find(enc => enc === 'gzip');
       }
 
-      // compress body response
-
-      if (encode === "gzip") {
-        socket.write(`HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Encoding: ${encode}\r\n\r\n`);
-        socket.end();
-      } else {
-        socket.write(`HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: ${Buffer.byteLength(resp[1])}\r\n\r\n${resp[1]}`);
-        socket.end();
+      switch(encode) {
+        case 'gzip':
+          let compressed = zlib.gzipSync(resp[1]);
+          socket.write(`HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Encoding: ${encode}\r\nContent-Length: ${Buffer.byteLength(compressed)}\r\n\r\n`);
+          socket.write(compressed);
+          break;
+        default:
+          socket.write(`HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: ${Buffer.byteLength(resp[1])}\r\n\r\n${resp[1]}`);
+          break;
       }
+      socket.end();
     } else {
       socket.write("HTTP/1.1 404 Not Found\r\n\r\n");
       socket.end();
@@ -74,7 +74,6 @@ function GET(req, socket) {
   }
 }
 
-// -- POST method handler
 function POST(req, socket) {
   req = req.split('\r\n');
 
@@ -88,34 +87,29 @@ function POST(req, socket) {
     let file = resp[3].toString();
     let post = req[req.lastIndexOf("")+1];
 
-    //console.log(`\r\nverify\r\n${dir}/${file}\r\n${post}\r\n`);
-    fs.writeFile(`${dir}${file}`, `${post}`, (err) => err && console.error(err))
-
-    if (fs.existsSync(`${dir}${file}`)) {
+    // file is created.
+    fs.writeFile(`${dir}${file}`, `${post}`, () => {
       fs.readFile(`${dir}${file}`, "utf8", (err, data) => {
+        data = data.toString();
         let encode = req.find(line => line.startsWith("Accept-Encoding"));
         if (encode !== undefined) {
           encode = encode.split(':')[1].split(',').map(idx => idx.trim());
-          
-          // -- gzip
           encode = encode.find(enc => enc === 'gzip');
         }
-        // compress body response
-
-        if (encode === "gzip") {
-          data = data.toString();
-          socket.write(`HTTP/1.1 201 Created\r\nContent-Type: text/plain\r\nContent-Encoding: ${encode}\r\n\r\n`);
-          socket.end();
-        } else {
-          data = data.toString();
-          socket.write(`HTTP/1.1 201 Created\r\nContent-Type: text/plain\r\nContent-Length: ${Buffer.byteLength(resp[1])}\r\n\r\n${resp[1]}`);
-          socket.end();
+        
+        switch(encode) {
+          case 'gzip':
+            let compressed = zlib.gzipSync(data);
+            socket.write(`HTTP/1.1 201 Created\r\nContent-Type: text/plain\r\nContent-Encoding: ${encode}\r\nContent-Length: ${Buffer.byteLength(compressed)}\r\n\r\n`);
+            soket.write(compressed);
+            break;
+          default:
+            socket.write(`HTTP/1.1 201 Created\r\nContent-Type: text/plain\r\nContent-Length: ${Buffer.byteLength(data)}\r\n\r\n${data}`);
+            break;
         }
+        socket.end();
       });
-    } else {
-      socket.write("HTTP/1.1 404 Not Found\r\n\r\n");
-      socket.end();
-    }
+    });
   } else {
     socket.write("HTTP/1.1 404 Not Found\r\n\r\n");
     socket.end();
