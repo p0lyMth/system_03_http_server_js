@@ -25,9 +25,13 @@ function GET(req, socket) {
     if ((/echo/).test(req_root)) {
       let resp   = rgx_origin_echo.exec(req_root);
       let encode = req.find(line => line.startsWith("Accept-Encoding"));
-      if (encode !== undefined) { encode = encode.split(/:|\s/)[2].toString(); }
+      if (encode !== undefined) {
+        encode = encode.split(':')[1].split(',').map(idx => idx.trim());
+        
+        // -- gzip
+        encode = encode.find(enc => enc === 'gzip');
+      }
 
-      // console.log(`${encode}`);
       // compress body response
 
       if (encode === "gzip") {
@@ -89,9 +93,24 @@ function POST(req, socket) {
 
     if (fs.existsSync(`${dir}${file}`)) {
       fs.readFile(`${dir}${file}`, "utf8", (err, data) => {
-        data = data.toString();
-        socket.write(`HTTP/1.1 201 Created\r\n\r\n`);
-        socket.end();
+        let encode = req.find(line => line.startsWith("Accept-Encoding"));
+        if (encode !== undefined) {
+          encode = encode.split(':')[1].split(',').map(idx => idx.trim());
+          
+          // -- gzip
+          encode = encode.find(enc => enc === 'gzip');
+        }
+        // compress body response
+
+        if (encode === "gzip") {
+          data = data.toString();
+          socket.write(`HTTP/1.1 201 Created\r\nContent-Type: text/plain\r\nContent-Encoding: ${encode}\r\n\r\n`);
+          socket.end();
+        } else {
+          data = data.toString();
+          socket.write(`HTTP/1.1 201 Created\r\nContent-Type: text/plain\r\nContent-Length: ${Buffer.byteLength(resp[1])}\r\n\r\n${resp[1]}`);
+          socket.end();
+        }
       });
     } else {
       socket.write("HTTP/1.1 404 Not Found\r\n\r\n");
