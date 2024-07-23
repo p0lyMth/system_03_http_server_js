@@ -71,10 +71,13 @@ function POST(req, socket) {
     let resp = req_root.split(/\s|\//);
     let dir  = process.argv[3].toString();
     let file = resp[3].toString();
-    let post = req[req.lastIndexOf("")];
-    //console.log(`${post}\r\n`);
-    if (fs.existsSync(`/${dir}/${file}`)) {
-      fs.readFile(`/${dir}/${file}`, "utf8", (err, data) => {
+    let post = req[req.lastIndexOf("")+1];
+
+    //console.log(`\r\nverify\r\n${dir}/${file}\r\n${post}\r\n`);
+    fs.writeFile(`${dir}${file}`, `${post}`, (err) => err && console.error(err))
+
+    if (fs.existsSync(`${dir}${file}`)) {
+      fs.readFile(`${dir}${file}`, "utf8", (err, data) => {
         data = data.toString();
         socket.write(`HTTP/1.1 201 Created\r\n\r\n`);
         socket.end();
